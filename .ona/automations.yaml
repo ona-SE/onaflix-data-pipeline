@@ -1,0 +1,41 @@
+tasks:
+  install-deps:
+    name: Install dependencies
+    description: Download Go module dependencies.
+    command: |
+      go mod download
+    triggeredBy:
+      - postDevcontainerStart
+
+  setup-db:
+    name: Setup database
+    description: Wait for PostgreSQL and create the onaflix database.
+    command: |
+      until docker exec postgres pg_isready -U gitpod > /dev/null 2>&1; do
+        echo "Waiting for PostgreSQL..."
+        sleep 1
+      done
+      docker exec postgres psql -U gitpod -tc "SELECT 1 FROM pg_database WHERE datname = 'onaflix'" | grep -q 1 || \
+        docker exec postgres createdb -U gitpod onaflix
+      echo "Database 'onaflix' is ready."
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - install-deps
+
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database for the OnaFlix pipeline.
+    commands:
+      start: |
+        docker run --rm --name postgres \
+          -e POSTGRES_USER=gitpod \
+          -e POSTGRES_PASSWORD=gitpod \
+          -e POSTGRES_DB=onaflix \
+          -p 5432:5432 \
+          postgres:16
+      ready: |
+        docker exec postgres pg_isready -U gitpod
+      stop: |
+        docker stop postgres
