@@ -1,0 +1,35 @@
+tasks:
+  install-deps:
+    name: Install dependencies
+    description: Download Go module dependencies.
+    command: |
+      go mod download
+    triggeredBy:
+      - postDevcontainerStart
+
+  run-tests:
+    name: Run tests
+    description: Run the Go test suite.
+    command: |
+      go test ./...
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - install-deps
+
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database for the pipeline.
+    commands:
+      start: |
+        docker run --rm --name onaflix-postgres \
+          -e POSTGRES_USER=gitpod \
+          -e POSTGRES_PASSWORD=gitpod \
+          -e POSTGRES_DB=onaflix \
+          -p 5432:5432 \
+          postgres:16
+      ready: |
+        docker exec onaflix-postgres pg_isready -U gitpod
+      stop: |
+        docker stop onaflix-postgres
