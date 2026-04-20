@@ -1,0 +1,42 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database server
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: |
+        pg_ctlcluster 16 main start 2>/dev/null || true
+        until pg_isready -h localhost -U gitpod -q; do sleep 1; done
+        psql -h localhost -U gitpod -tc "SELECT 1 FROM pg_database WHERE datname = 'onaflix'" | grep -q 1 || psql -h localhost -U gitpod -c 'CREATE DATABASE onaflix'
+        echo "PostgreSQL ready on port 5432"
+        # Keep service running
+        tail -f /var/log/postgresql/postgresql-16-main.log 2>/dev/null || sleep infinity
+      stop: pg_ctlcluster 16 main stop
+
+tasks:
+  install-deps:
+    name: Install Go Dependencies
+    description: Download Go module dependencies
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: go mod download && echo "Dependencies installed"
+
+  run-tests:
+    name: Run Tests
+    description: Run the Go test suite
+    commands:
+      start: go test ./...
+
+  build:
+    name: Build Pipeline
+    description: Build the pipeline binary
+    commands:
+      start: go build -o bin/pipeline cmd/pipeline/main.go && echo "Built bin/pipeline"
+
+  run-pipeline:
+    name: Run Pipeline
+    description: Execute the data pipeline against the local database
+    commands:
+      start: go run cmd/pipeline/main.go

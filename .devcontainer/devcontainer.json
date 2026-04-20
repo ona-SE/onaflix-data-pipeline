@@ -1,0 +1,33 @@
+{
+  "name": "OnaFlix Data Pipeline",
+  "image": "mcr.microsoft.com/devcontainers/go:1.21",
+  "features": {
+    "ghcr.io/devcontainers/features/postgresql:1": {
+      "version": "16"
+    }
+  },
+  "postCreateCommand": "go mod download && pg_isready -h localhost -U gitpod || (pg_ctlcluster 16 main start && sleep 2) && psql -h localhost -U gitpod -tc \"SELECT 1 FROM pg_database WHERE datname = 'onaflix'\" | grep -q 1 || psql -h localhost -U gitpod -c 'CREATE DATABASE onaflix'",
+  "containerEnv": {
+    "DATABASE_URL": "postgres://gitpod:gitpod@localhost:5432/onaflix?sslmode=disable"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint"
+      }
+    }
+  },
+  "forwardPorts": [
+    5432
+  ],
+  "portsAttributes": {
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  }
+}
