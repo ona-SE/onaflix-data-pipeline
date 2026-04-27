@@ -1,0 +1,58 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database for OnaFlix
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: |
+        if ! command -v pg_isready &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y postgresql postgresql-contrib
+        fi
+        sudo pg_ctlcluster $(pg_lsclusters -h | head -1 | awk '{print $1}') main start 2>/dev/null || true
+        sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'gitpod';" 2>/dev/null || true
+        sudo -u postgres psql -c "CREATE USER gitpod WITH PASSWORD 'gitpod' SUPERUSER;" 2>/dev/null || true
+        sudo -u postgres psql -c "CREATE DATABASE onaflix OWNER gitpod;" 2>/dev/null || true
+        sudo -u postgres psql -d onaflix -c "
+          CREATE TABLE IF NOT EXISTS movies (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            release_year INTEGER,
+            rating NUMERIC(3,1),
+            image_url TEXT,
+            director VARCHAR(255),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+          );
+        " 2>/dev/null || true
+        echo "PostgreSQL is ready"
+        # Keep the service running
+        tail -f /var/log/postgresql/*.log 2>/dev/null || sleep infinity
+      stop: |
+        sudo pg_ctlcluster $(pg_lsclusters -h | head -1 | awk '{print $1}') main stop 2>/dev/null || true
+
+tasks:
+  install-deps:
+    name: Install Go Dependencies
+    description: Download Go module dependencies
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: go mod download
+
+  build:
+    name: Build Pipeline
+    description: Compile the data pipeline binary
+    triggeredBy:
+      - postDevcontainerStart
+    depends:
+      - install-deps
+    commands:
+      start: go build -o bin/pipeline cmd/pipeline/main.go
+
+  test:
+    name: Run Tests
+    description: Execute the test suite
+    commands:
+      start: go test ./...
