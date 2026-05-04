@@ -1,0 +1,53 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database for OnaFlix
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: |
+        if ! command -v pg_isready &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y postgresql
+        fi
+        sudo pg_ctlcluster $(pg_lsclusters -h | head -1 | awk '{print $1, $2}') start || true
+        # Wait for PostgreSQL to be ready
+        for i in $(seq 1 30); do
+          pg_isready -h localhost -p 5432 && break
+          sleep 1
+        done
+        # Create user and database if they don't exist
+        sudo -u postgres psql -c "CREATE USER gitpod WITH PASSWORD 'gitpod' SUPERUSER;" 2>/dev/null || true
+        sudo -u postgres psql -c "CREATE DATABASE onaflix OWNER gitpod;" 2>/dev/null || true
+        # Keep the service running
+        sleep infinity
+      stop: |
+        sudo pg_ctlcluster $(pg_lsclusters -h | head -1 | awk '{print $1, $2}') stop || true
+
+tasks:
+  go-deps:
+    name: Install Go dependencies
+    description: Download Go module dependencies
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: go mod download
+
+  go-build:
+    name: Build pipeline
+    description: Compile the data pipeline binary
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - go-deps
+    commands:
+      start: go build -o bin/pipeline cmd/pipeline/main.go
+
+  go-test:
+    name: Run tests
+    description: Execute the test suite
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - go-deps
+    commands:
+      start: go test ./...
