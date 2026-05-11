@@ -1,0 +1,23 @@
+{
+  "name": "OnaFlix Data Pipeline",
+  "image": "mcr.microsoft.com/devcontainers/go:1.21",
+  "features": {
+    "ghcr.io/devcontainers/features/postgresql:1": {
+      "version": "16"
+    }
+  },
+  "postCreateCommand": "go mod download && psql -U postgres -c \"CREATE USER gitpod WITH PASSWORD 'gitpod' CREATEDB;\" && psql -U postgres -c \"CREATE DATABASE onaflix OWNER gitpod;\" && psql -U gitpod -d onaflix -c \"CREATE TABLE IF NOT EXISTS movies (id SERIAL PRIMARY KEY, title TEXT NOT NULL, description TEXT, release_year INT, rating NUMERIC, image_url TEXT, director TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());\"",
+  "containerEnv": {
+    "DATABASE_URL": "postgres://gitpod:gitpod@localhost:5432/onaflix?sslmode=disable"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ]
+    }
+  },
+  "forwardPorts": [5432]
+}

@@ -1,0 +1,61 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL database for the OnaFlix pipeline
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: |
+        pg_isready -U postgres || pg_ctlcluster 16 main start
+        echo "PostgreSQL is running"
+      ready: pg_isready -U postgres -q
+
+tasks:
+  install-deps:
+    name: Install Go Dependencies
+    description: Download Go module dependencies
+    triggeredBy:
+      - postDevcontainerStart
+    command: go mod download
+
+  init-db:
+    name: Initialize Database
+    description: Create database user, database, and schema
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - postgres
+    command: |
+      psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='gitpod'" | grep -q 1 || \
+        psql -U postgres -c "CREATE USER gitpod WITH PASSWORD 'gitpod' CREATEDB;"
+      psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='onaflix'" | grep -q 1 || \
+        psql -U postgres -c "CREATE DATABASE onaflix OWNER gitpod;"
+      psql -U gitpod -d onaflix -c "CREATE TABLE IF NOT EXISTS movies (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        release_year INT,
+        rating NUMERIC,
+        image_url TEXT,
+        director TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );"
+
+  run-tests:
+    name: Run Tests
+    description: Run Go test suite
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - install-deps
+    command: go test ./...
+
+  build:
+    name: Build Pipeline
+    description: Compile the pipeline binary
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - install-deps
+    command: go build -o bin/pipeline cmd/pipeline/main.go
