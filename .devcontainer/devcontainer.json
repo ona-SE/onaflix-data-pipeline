@@ -1,0 +1,28 @@
+{
+  "name": "OnaFlix Data Pipeline",
+  "image": "mcr.microsoft.com/devcontainers/go:1.21",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers-extra/features/postgresql-client:1": {}
+  },
+  "forwardPorts": [5432],
+  "runServices": ["postgres"],
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/onaflix-data-pipeline",
+  "postCreateCommand": "go mod download && go build -o bin/pipeline cmd/pipeline/main.go",
+  "containerEnv": {
+    "DATABASE_URL": "postgres://gitpod:gitpod@postgres:5432/onaflix?sslmode=disable"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint"
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: PostgreSQL 16 database for OnaFlix
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: |
+        if ! docker ps --format '{{.Names}}' | grep -q onaflix-postgres; then
+          docker run -d --name onaflix-postgres \
+            -e POSTGRES_USER=gitpod \
+            -e POSTGRES_PASSWORD=gitpod \
+            -e POSTGRES_DB=onaflix \
+            -p 5432:5432 \
+            postgres:16
+        fi
+        # Wait for PostgreSQL to be ready
+        for i in $(seq 1 30); do
+          if docker exec onaflix-postgres pg_isready -U gitpod -d onaflix > /dev/null 2>&1; then
+            echo "PostgreSQL is ready"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "PostgreSQL failed to start" && exit 1
+      stop: docker stop onaflix-postgres && docker rm onaflix-postgres
+      isRunning: docker exec onaflix-postgres pg_isready -U gitpod -d onaflix
+
+tasks:
+  install-deps:
+    name: Install Dependencies
+    description: Download Go module dependencies
+    triggeredBy:
+      - postDevcontainerStart
+    commands:
+      start: go mod download
+
+  build:
+    name: Build Pipeline
+    description: Compile the data pipeline binary
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - install-deps
+    commands:
+      start: go build -o bin/pipeline cmd/pipeline/main.go
+
+  test:
+    name: Run Tests
+    description: Execute the test suite
+    commands:
+      start: go test ./...
